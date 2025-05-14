@@ -53,23 +53,27 @@ class GPT2SentimentClassifier(torch.nn.Module):
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
 
-    '''
-    TODO: BERT 임베딩의 감정 분류를 위해 필요한 인스턴스 변수를 생성하시오.
-    '''
+    self.drpout = torch.nn.Dropout(config.hidden_dropout_prob)
+    self.classifier = torch.nn.Linear(config.hidden_size, config.num_labels)
     ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # raise NotImplementedError
 
 
   def forward(self, input_ids, attention_mask):
     '''문장들의 batch를 받아서 감정 클래스에 대한 로짓을 반환'''
 
-    '''
-    TODO: 최종 GPT contextualized embedding은 마지막 토큰의 hidden state이다.
-        힌트: 현재 훈련 반복루프에서 손실 함수로 `F.cross_entropy`를 사용하고 있음을 고려하여
-        적절한 반환값이 무엇인지 생각해보시오.
-    '''
+    outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
+    last_hidden = outputs.last_hidden_state
+
+    last_token_idxs = attention_mask.sum(dim=1) - 1
+    batch_size = input_ids.size(0)
+
+    last_token_embeddings = last_hidden[torch.arange(batch_size), last_token_idxs]
+
+    logits = self.classifier(self.dropout(last_token_embeddings))
+    return logits
     ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # raise NotImplementedError
 
 
 class SentimentDataset(Dataset):
@@ -306,7 +310,7 @@ def train(args):
 
     print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
 
-
+# 테스트 함수 혼동으로 인한 오류 발생 -> 이름 변경 ex) run_test()
 def test(args):
   with torch.no_grad():
     device = torch.device('cuda') if args.use_gpu else torch.device('cpu')
@@ -407,4 +411,5 @@ if __name__ == "__main__":
   train(config)
 
   print('Evaluating on cfimdb...')
+  # run_test 함수로 변경
   test(config)
