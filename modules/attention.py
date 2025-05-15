@@ -34,8 +34,24 @@ class CausalSelfAttention(nn.Module):
 
   def attention(self, key, query, value, attention_mask):
 
+    # dot product attention socres : QK^T/ sqrt(d)
+    d_k = query.size(-1)
+    scores = torch.matmul(query, key.transpose(-2, -1)) / torch.sqrt(torch.tensor(d_k, dtype=torch.float32, device=query.device))
+    # scores shape: [bs, heads, seq_len, seq_len]
+
+    # attention mask
+    if attention_mask is not None:
+      scores = scores + attention_masks # attention_mask : 음의 무한대 or 0
+
+    # softmax, dropout, attention-weighted value
+    attn_probs = torch.softmax(scores, dim=-1)
+    attn_probs = self.dropout(attn_probs)
+    attn_output = torch. matmul(attn_probs, value)
+
+    attn_ouput = rearrange(attn_output, 'b h t d -> b t (h d)')
+    return attn_output
     ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # raise NotImplementedError
 
 
   def forward(self, hidden_states, attention_mask):
