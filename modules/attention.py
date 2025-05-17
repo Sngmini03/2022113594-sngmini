@@ -35,7 +35,30 @@ class CausalSelfAttention(nn.Module):
   def attention(self, key, query, value, attention_mask):
 
     ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # query: [bs, heads, q_len, d]
+    # key:   [bs, heads, k_len, d]
+    # value: [bs, heads, k_len, d]
+    # attention_mask: [bs, 1, 1, k_len]
+
+    # Step 1: Scaled dot-product attention
+    dk = query.size(-1)
+    scores = torch.matmul(query, key.transpose(-2, -1)) / torch.sqrt(torch.tensor(dk, dtype=torch.float32, device=query.device))
+    # scores: [bs, heads, q_len, k_len]
+
+    # Step 2: Apply attention mask (additive mask: masked positions get large negative values)
+    if attention_mask is not None:
+        scores = scores + attention_mask  # attention_mask should contain -inf or large negative values
+
+    # Step 3: Softmax over the last dimension (k_len)
+    attn_probs = torch.softmax(scores, dim=-1)
+    attn_probs = self.dropout(attn_probs)
+
+    # Step 4: Apply attention weights to values
+    context = torch.matmul(attn_probs, value)  # [bs, heads, q_len, d]
+
+    # Step 5: Rearrange back to [bs, seq_len, hidden_size]
+    context = rearrange(context, 'b h t d -> b t (h d)')
+    return context
 
 
   def forward(self, hidden_states, attention_mask):
