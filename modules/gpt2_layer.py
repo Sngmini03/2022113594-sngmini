@@ -29,7 +29,9 @@ class GPT2Layer(nn.Module):
         이 함수에서는 Layer Normalization을 적용하지 않는다.
     """
     ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    output = dense_layer(output)
+    output = dropout(output)
+    return input + output
 
 
   def forward(self, hidden_states, attention_mask):
@@ -42,4 +44,20 @@ class GPT2Layer(nn.Module):
     """
 
     ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # === Multi-head Attention ===
+    # LayerNorm before attention
+    normed_hidden_states = self.attention_layer_norm(hidden_states)
+    attention_output = self.self_attention(normed_hidden_states, attention_mask)
+    # Residual + Dropout
+    hidden_states = self.add(hidden_states, attention_output, self.attention_dense, self.attention_dropout)
+
+    # === Feed Forward ===
+    # LayerNorm before FFN
+    normed_hidden_states = self.out_layer_norm(hidden_states)
+    ff_output = self.interm_af(self.interm_dense(normed_hidden_states))
+    ff_output = self.out_dense(ff_output)
+    ff_output = self.out_dropout(ff_output)
+    # Residual connection
+    hidden_states = hidden_states + ff_output
+
+    return hidden_states
