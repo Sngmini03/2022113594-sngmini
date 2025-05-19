@@ -55,9 +55,6 @@ class GPT2Layer(nn.Module):
     # LayerNorm before FFN
     normed_hidden_states = self.out_layer_norm(hidden_states)
     ff_output = self.interm_af(self.interm_dense(normed_hidden_states))
-    ff_output = self.out_dense(ff_output)
-    ff_output = self.out_dropout(ff_output)
-    # Residual connection
-    hidden_states = hidden_states + ff_output
+    hidden_states = self.add(hidden_states, ff_output, self.out_dense, self.out_dropout)
 
     return hidden_states
