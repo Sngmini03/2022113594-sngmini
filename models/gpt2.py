@@ -58,7 +58,7 @@ class GPT2Model(GPTPreTrainedModel):
     # 단어 임베딩과 위치 임베딩을 더하고 드롭아웃 적용
     embeddings = inputs_embeds + pos_embeds
     embeddings = self.embed_dropout(embeddings)
-
+    return embeddings
 
   def encode(self, hidden_states, attention_mask):
     """
