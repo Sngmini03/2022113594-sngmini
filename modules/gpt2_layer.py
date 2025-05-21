@@ -46,15 +46,14 @@ class GPT2Layer(nn.Module):
     ### 완성시켜야 할 빈 코드 블록
     # === Multi-head Attention ===
     # LayerNorm before attention
-    normed_hidden_states = self.attention_layer_norm(hidden_states)
-    attention_output = self.self_attention(normed_hidden_states, attention_mask)
-    # Residual + Dropout
+    # --- Attention Block ---
+    normed_hidden = self.attention_layer_norm(hidden_states)
+    attention_output = self.self_attention(normed_hidden, attention_mask)
     hidden_states = self.add(hidden_states, attention_output, self.attention_dense, self.attention_dropout)
 
-    # === Feed Forward ===
-    # LayerNorm before FFN
-    normed_hidden_states = self.out_layer_norm(hidden_states)
-    ff_output = self.interm_af(self.interm_dense(normed_hidden_states))
+    # --- Feed-Forward Block ---
+    normed_hidden = self.out_layer_norm(hidden_states)
+    ff_output = self.interm_af(self.interm_dense(normed_hidden))
     hidden_states = self.add(hidden_states, ff_output, self.out_dense, self.out_dropout)
 
     return hidden_states
