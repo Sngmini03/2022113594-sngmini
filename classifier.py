@@ -53,27 +53,19 @@ class GPT2SentimentClassifier(torch.nn.Module):
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
 
-    self.drpout = torch.nn.Dropout(config.hidden_dropout_prob)
-    self.classifier = torch.nn.Linear(config.hidden_size, config.num_labels)
-    ### 완성시켜야 할 빈 코드 블록
-    # raise NotImplementedError
+    self.last_linear = torch.nn.Linear(config.hidden_size, self.num_labels)
+    self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
 
 
   def forward(self, input_ids, attention_mask):
     '''문장들의 batch를 받아서 감정 클래스에 대한 로짓을 반환'''
 
-    outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-    last_hidden = outputs.last_hidden_state
-
-    last_token_idxs = attention_mask.sum(dim=1) - 1
-    batch_size = input_ids.size(0)
-
-    last_token_embeddings = last_hidden[torch.arange(batch_size), last_token_idxs]
-
-    logits = self.classifier(self.dropout(last_token_embeddings))
+    output = self.gpt(input_ids, attention_mask=attention_mask)
+    sequence_output = output['last_hidden_state']
+    last_token = output['last_token']
+    logits = self.last_linear(last_token)  # [batch_size, seq_len, num_labels]
+    logits = self.dropout(logits)
     return logits
-    ### 완성시켜야 할 빈 코드 블록
-    # raise NotImplementedError
 
 
 class SentimentDataset(Dataset):
