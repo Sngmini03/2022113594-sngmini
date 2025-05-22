@@ -23,7 +23,6 @@ def test_gpt2(model_size='gpt2'):
   openai_outputs *= att_mask
 
   assert torch.allclose(outputs['last_hidden_state'], openai_outputs, atol=1e-1, rtol=1e-2)
-
   print("Your GPT2 implementation is correct!")
 
 if __name__ == '__main__':

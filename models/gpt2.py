@@ -105,7 +105,8 @@ class GPT2Model(GPTPreTrainedModel):
       return hidden_state(s) * E^T
     """
     ### 완성시켜야 할 빈 코드 블록
-    return torch.matmul(hidden_state, self.word_embedding.weight.t())
+    score = hidden_state @ self.word_embedding.weight.T
+    return score
 
 
   @classmethod
