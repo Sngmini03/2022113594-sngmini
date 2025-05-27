@@ -70,10 +70,9 @@ class ParaphraseGPT(nn.Module):
     패러프레이즈가 아닌 경우에는 토큰 "no" (BPE index 3919)가 될 것이다.
     """
     ### 완성시켜야 할 빈 코드 블록
-    hidden_states = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
-    last_token_indices = attention_mask.sum(dim=1) - 1  # 각 시퀀스의 마지막 유효 토큰의 인덱스
-    last_hidden_states = hidden_states[torch.arange(hidden_states.size(0)), last_token_indices]
-    logits = self.paraphrase_detection_head(last_hidden_states)
+    gpt_output = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
+    last_token_hidden_state = gpt_output['last_token'] # [batch_size, hidden_size]
+    logits = self.paraphrase_detection_head(last_token_hidden_state) # [batch_size, 2]
     return logits
 
 
