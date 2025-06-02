@@ -56,12 +56,12 @@ class SonnetGPT(nn.Module):
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
-    """
-    ParaphraseGPT의 forward pass와 유사하지만, 여기서는 시퀀스의 마지막 토큰뿐만 아니라 시퀀스의 각 토큰에 대한 logit을 생성하려고 한다.
-    이를 통해, 마지막 토큰에 대한 다음 토큰의 분포만 학습하는 것이 아니라, 모델은 소네트를 구성하는 자연어 분포를 학습할 수 있다.
-    """
+    outputs = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
+    hidden_states = outputs.last_hidden_state # shape: (B, T, D)
+
+    logits = torch.matmul(hidden_states, self.gpt.wte.weight.T) #shape: (B, T, V)
     ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # raise NotImplementedError
 
 
   def get_device(self):
@@ -70,15 +70,41 @@ class SonnetGPT(nn.Module):
 
   @torch.no_grad()
   def generate(self, encoding, temperature=0.7, top_p=0.9, max_length=128):
-    """
-    top-p sampling 과 softmax temperature를 사용하여 새로운 소넷을 생성한다.
 
-    TODO: 지금 이 방법은 기대 이하일 수 있다. 영감을 얻기 위해 Hugging Face의 model.generate(...) 함수를 참고해도 좋겠다.
-        여러 시퀀스를 생성하고 beam search를 통해 최적의 시퀀스를 선택하는 것도 좋은 한 가지 방법이다.
-        Top-k 샘플링 역시 또 다른 방법이며, 그 외에도 많은 접근법이 있다.
-    """
+    device = self.get_device()
     token_ids = encoding.to(self.get_device())
     attention_mask = torch.ones(token_ids.shape, dtype=torch.int64).to(self.get_device())
+
+    for _ in range(max_length):
+        logits = self.forward(token_ids, attention_mask) # (1, seq_len, vocab_size)
+        next_token_logits = logits[:, -1, :] / temperature
+
+        probs = torch.softmax(next_token_logits, dim=-1)
+
+        # Top-p (nucleus) sampling
+        sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+        cumulative_probs = torch.cumsum(probs, dim=-1)
+
+        # top-p 확률 임계값 처리
+        top_p_mask = cumulative_probs > top_p
+        top_p_mask[..., 1:] = False
+        sorted_probs[top_p_mask] = 0.0
+        sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
+
+        # 다음 토큰 샘플링
+        sampled_index = torch.multinomial(sorted_probs, 1)
+        next_token = sorted_indices.gather(-1, sampled_index)
+
+        if next_token.item() == self.tokenizer.eos_token_id:
+            break
+
+        # 토큰 및 attention mask 확장
+        token_ids = torch.cat([token_ids, next_token], dim=1)
+        attention_mask = torch.cat([attention_mask, torch.ones((1,1), dtype=torch.int64).to(device)], dim=1)
+
+        # 결과 디코딩 (처음 3글자 자름 제거 등은 필요시 수정 가능)
+        generated_text = self.tokenizer.decode(token_ids[0], skip_special_tokens=True)
+        return token_ids, generated_text
 
 
     for _ in range(max_length):
@@ -148,6 +174,10 @@ def train(args):
   lr = args.lr
   optimizer = AdamW(model.parameters(), lr=lr)
 
+  best_loss = float('inf')
+  patience_counter = 0
+  patience_limit = 3
+
   for epoch in range(args.epochs):
     model.train()
     train_loss = 0
@@ -180,9 +210,18 @@ def train(args):
       output = model.generate(encoding['input_ids'], temperature=args.temperature, top_p=args.top_p)
       print(f'{batch[1]}{output[1]}\n\n')
 
-    # TODO: 소넷의 작은 테이터셋에서 과적합을 방지하기 위한 종료 조건을 생각하시오.
-    save_model(model, optimizer, args, f'{epoch}_{args.filepath}')
+    # early stopping
+    if train_loss < best_loss:
+        best_loss = train_loss
+        patience = 0
+        save_model(model, optimizer, args, f'{epoch}_{args.filepath}')
 
+    else:
+      patience += patience_counter += 1
+      print(f'No improvement. Patience: {patience_counter}/{patience_limit}')
+      if patience_counter >= patience_limit:
+          print('Early stopping triggered.')
+          break
 
 @torch.no_grad()
 def generate_submission_sonnets(args):
