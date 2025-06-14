@@ -53,18 +53,22 @@ class GPT2SentimentClassifier(torch.nn.Module):
       elif config.fine_tune_mode == 'full-model':
         param.requires_grad = True
 
-    self.last_linear = torch.nn.Linear(config.hidden_size, self.num_labels)
     self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
+    self.classifier = torch.nn.Sequential(
+      torch.nn.Linear(config.hidden_size, config.hidden_size),
+      torch.nn.ReLU(),
+      torch.nn.Dropout(config.hidden_dropout_prob),
+      torch.nn.Linear(config.hidden_size, self.num_labels)
+    )
 
 
   def forward(self, input_ids, attention_mask):
     '''문장들의 batch를 받아서 감정 클래스에 대한 로짓을 반환'''
 
     output = self.gpt(input_ids, attention_mask=attention_mask)
-    sequence_output = output['last_hidden_state']
     last_token = output['last_token']
-    logits = self.last_linear(last_token)  # [batch_size, seq_len, num_labels]
-    logits = self.dropout(logits)
+    features = self.dropout(last_token)
+    logits = self.classifier(features)
     return logits
 
 
@@ -267,7 +271,10 @@ def train(args):
 
   lr = args.lr
   optimizer = AdamW(model.parameters(), lr=lr)
+  scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=2, verbose=True)
   best_dev_acc = 0
+  patience = 3
+  patience_counter = 0
 
   for epoch in range(args.epochs):
     model.train()
@@ -296,11 +303,20 @@ def train(args):
     train_acc, train_f1, *_ = model_eval(train_dataloader, model, device)
     dev_acc, dev_f1, *_ = model_eval(dev_dataloader, model, device)
 
+    scheduler.step(dev_acc)
+
     if dev_acc > best_dev_acc:
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, config, args.filepath)
+      patience_counter = 0
+    else:
+      patience_counter += 1
 
-    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f}")
+    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, train acc :: {train_acc :.3f}, dev acc :: {dev_acc :.3f} (patience {patience_counter}/{patience})")
+
+    if patience_counter >= patience:
+      print(f"Early stopping triggered at epoch {epoch}!")
+      break
 
 # 테스트 함수 혼동으로 인한 오류 발생 -> 이름 변경 ex) run_test()
 def test(args):
