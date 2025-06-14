@@ -51,28 +51,27 @@ class ParaphraseGPT(nn.Module):
   def __init__(self, args):
     super().__init__()
     self.gpt = GPT2Model.from_pretrained(model=args.model_size, d=args.d, l=args.l, num_heads=args.num_heads)
-    self.paraphrase_detection_head = nn.Linear(args.d, 2)  # Paraphrase detection 의 출력은 두 가지: 1 (yes) or 0 (no).
-
-    # 기본적으로, 전체 모델을 finetuning 한다.
+    # 마지막 토큰(hidden) + 전체 평균(hidden) 결합, 2층 MLP 분류기, Dropout 추가
+    self.dropout = nn.Dropout(0.3)
+    self.classifier = nn.Sequential(
+      nn.Linear(args.d * 2, args.d),
+      nn.ReLU(),
+      nn.Dropout(0.3),
+      nn.Linear(args.d, 2)
+    )
     for param in self.gpt.parameters():
       param.requires_grad = True
 
   def forward(self, input_ids, attention_mask):
     """
-    TODO: paraphrase_detection_head Linear layer를 사용하여 토큰의 레이블을 예측하시오.
-
-    입력은 다음과 같은 구조를 갖는다:
-
-      'Is "{s1}" a paraphrase of "{s2}"? Answer "yes" or "no": '
-
-    따라서, 문장의 끝에서 다음 토큰에 대한 예측을 해야 할 것이다. 
-    훈련이 잘 되었다면, 패러프레이즈인 경우에는 토큰 "yes"(BPE index 8505)가, 
-    패러프레이즈가 아닌 경우에는 토큰 "no" (BPE index 3919)가 될 것이다.
+    TODO 부분
     """
-    ### 완성시켜야 할 빈 코드 블록
     gpt_output = self.gpt(input_ids=input_ids, attention_mask=attention_mask)
     last_token_hidden_state = gpt_output['last_token'] # [batch_size, hidden_size]
-    logits = self.paraphrase_detection_head(last_token_hidden_state) # [batch_size, 2]
+    mean_hidden_state = gpt_output['last_hidden_state'].mean(dim=1) # [batch_size, hidden_size]
+    features = torch.cat([last_token_hidden_state, mean_hidden_state], dim=-1) # [batch, hidden*2]
+    features = self.dropout(features)
+    logits = self.classifier(features)
     return logits
 
 
@@ -113,6 +112,8 @@ def train(args):
   lr = args.lr
   optimizer = AdamW(model.parameters(), lr=lr, weight_decay=0.)
   best_dev_acc = 0
+  patience = 4  # early stopping patience
+  patience_counter = 0
 
   for epoch in range(args.epochs):
     model.train()
@@ -143,8 +144,15 @@ def train(args):
     if dev_acc > best_dev_acc:
       best_dev_acc = dev_acc
       save_model(model, optimizer, args, args.filepath)
+      patience_counter = 0
+    else:
+      patience_counter += 1
 
-    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, dev acc :: {dev_acc :.3f}")
+    print(f"Epoch {epoch}: train loss :: {train_loss :.3f}, dev acc :: {dev_acc :.3f} (patience {patience_counter}/{patience})")
+
+    if patience_counter >= patience:
+      print(f"Early stopping triggered at epoch {epoch}!")
+      break
 
 
 @torch.no_grad()
