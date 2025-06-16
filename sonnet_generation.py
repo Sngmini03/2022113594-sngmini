@@ -27,6 +27,7 @@ from datasets import (
 from models.gpt2 import GPT2Model
 
 from optimizer import AdamW
+from evaluation import test_sonnet
 
 TQDM_DISABLE = False
 
@@ -222,6 +223,12 @@ def generate_submission_sonnets(args):
       f.write(sonnet[1])
 
 
+def test_sonnet_main(args):
+  # 소넷 생성 결과 평가
+  score = test_sonnet(test_path=args.sonnet_out, gold_path="data/TRUE_sonnets_held_out.txt")
+  print(f"CHRF score: {score:.4f}")
+
+
 def get_args():
   parser = argparse.ArgumentParser()
 
@@ -272,3 +279,4 @@ if __name__ == "__main__":
   seed_everything(args.seed)  # 재현성을 위한 random seed 고정.
   train(args)
   generate_submission_sonnets(args)
+  test_sonnet_main(args)
