@@ -178,8 +178,8 @@ def test(args):
   para_test_dataloader = DataLoader(para_test_data, shuffle=True, batch_size=args.batch_size,
                                     collate_fn=para_test_data.collate_fn)
 
-  dev_para_acc, _, dev_para_y_pred, _, dev_para_sent_ids = model_eval_paraphrase(para_dev_dataloader, model, device)
-  print(f"dev paraphrase acc :: {dev_para_acc :.3f}")
+  dev_para_acc, dev_para_f1, dev_para_y_pred, _, dev_para_sent_ids = model_eval_paraphrase(para_dev_dataloader, model, device)
+  print(f"dev paraphrase acc :: {dev_para_acc :.3f}, f1 :: {dev_para_f1:.3f}")
   test_para_y_pred, test_para_sent_ids = model_test_paraphrase(para_test_dataloader, model, device)
 
   with open(args.para_dev_out, "w+") as f:
