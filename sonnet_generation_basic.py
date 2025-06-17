@@ -225,7 +225,7 @@ def generate_submission_sonnets(args):
 
 def test_sonnet_main(args):
   # 소넷 생성 결과 평가
-  score = test_sonnet(test_path=args.sonnet_out, gold_path="data/TRUE_sonnets_held_out.txt")
+  score = test_sonnet(test_path=args.sonnet_out, gold_path="data/TRUE_sonnets_held_out_dev.txt")
   print(f"CHRF score: {score:.4f}")
 
 

@@ -1,0 +1,14 @@
+# 필수 패키지 목록
+# 버전 명시는 주요 패키지에 한함
+
+torch
+transformers
+peft
+tqdm
+requests
+filelock
+importlib-metadata
+scikit-learn
+einops
+sacrebleu
+numpy
