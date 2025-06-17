@@ -214,7 +214,7 @@ def run(data_path, epochs=5, batch_size=16, n_trials=20):
 
 if __name__ == "__main__":
     run(
-        "/content/drive/MyDrive/nlp_final/aclImdb/data",
+        "../data",  # sentiment analysis 폴더에서 상위 폴더의 data 폴더를 바라보도록 수정
         epochs=3,        # ↔ 필요에 따라 조정
         batch_size=8,
         n_trials=10,

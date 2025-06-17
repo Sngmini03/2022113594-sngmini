@@ -132,6 +132,5 @@ def train_roberta_imdb(data_path, model_name='roberta-base', num_labels=2, epoch
 
 
 if __name__ == '__main__':
-    base_dir = '/content/drive/MyDrive/nlp_final/aclImdb'
-    data_path = os.path.join(base_dir, 'data')
+    data_path = '../data'  # sentiment analysis 폴더에서 상위 폴더의 data 폴더를 바라보도록 수정
     train_roberta_imdb(data_path)
